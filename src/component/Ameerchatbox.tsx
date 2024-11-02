@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, KeyboardEvent, ChangeEvent } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBurger, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
 import { useUser } from "./UserContext";
@@ -9,11 +9,16 @@ import { baseUrl } from "./constants";
 import ErrorMessage from "./ErrorMessage";
 import ReactMarkdown from 'react-markdown';
 
-// Define types for the chat message and user
 interface Message {
   message: string;
   userRole: string;
-  id?: number; // Optional for AI messages
+  id?: string;
+}
+
+interface Chat {
+  id: string;
+  title: string;
+  message: string;
 }
 
 interface User {
@@ -21,44 +26,23 @@ interface User {
   email: string;
 }
 
-// Define props for the NavBar component
-interface NavBarProps {
-  isMenuOpen: boolean;
-  sideMenuRef: React.RefObject<HTMLDivElement>;
-  toggleMenu: () => void;
-  user: User | null;
-  getInitials: (name: string) => string;
-  handleLogoutClick: () => void;
-  showRecentChatButton: boolean;
-  promptSent: boolean;
-  handleRecentChatsClick: () => void;
-  isLoading: boolean;
-  recentChats: { title: string; id?: number }[];
-  handleNewChatClick: () => void;
-}
-
-// Define props for the ChaUI component
-interface ChaUIProps {
-  messages: Message[];
-}
-
 export default function Ameerchatbox() {
-  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-  const [inputText, setInputText] = useState<string>("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [recentChats, setRecentChats] = useState<{ title: string; message?: string; id?: number }[]>([]);
-  const [buttonBlur, setButtonBlur] = useState<boolean>(false);
-  const [showRecentChatButton, setShowRecentChatButton] = useState<boolean>(true);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSending, setIsSending] = useState<boolean>(false);
-  const [navbarHeading, setNavbarHeading] = useState<string>("New Chat!");
-  const [firstAIResponseSet, setFirstAIResponseSet] = useState<boolean>(false);
-  const [promptSent, setPromptSent] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string>(""); // State for error messages
-  const { user } = useUser();
+  const [recentChats, setRecentChats] = useState<Chat[]>([]);
+  const [buttonBlur, setButtonBlur] = useState(false);
+  const [showRecentChatButton, setShowRecentChatButton] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [navbarHeading, setNavbarHeading] = useState("New Chat!");
+  const [firstAIResponseSet, setFirstAIResponseSet] = useState(false);
+  const [promptSent, setPromptSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(""); // State for error messages
+  const { user } = useUser() as { user: User };
   const navigate = useNavigate();
   const sideMenuRef = useRef<HTMLDivElement>(null);
-  const { id } = useParams<{ id?: string }>();
+  const { id } = useParams<{ id: string }>();
 
   useEffect(() => {
     if (id) {
@@ -71,15 +55,18 @@ export default function Ameerchatbox() {
     const token = localStorage.getItem("token");
 
     try {
-      const response = await axios.get(`${baseUrl}/api/v1/chat/${id}/chat_messages`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await axios.get(
+        `${baseUrl}/api/v1/chat/${id}/chat_messages`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       setMessages(response.data.data);
       console.log(response.data.data);
     } catch (e) {
-      console.log(`Error Occurred while fetching chat_history (${id}) :`, e);
+      console.log(`Error Occured while fetching chat_history (${id}) :`, e);
     }
   }
 
@@ -115,7 +102,7 @@ export default function Ameerchatbox() {
     setShowRecentChatButton(true);
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | undefined) => {
     if (!name) return "";
     return name
       .split(" ")
@@ -129,7 +116,7 @@ export default function Ameerchatbox() {
     navigate("/login");
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
   };
 
@@ -137,7 +124,7 @@ export default function Ameerchatbox() {
     if (inputText.trim()) {
       setButtonBlur(true);
       setIsSending(true);
-      const newMessages: Message[] = [
+      const newMessages = [
         ...messages,
         { message: inputText, userRole: "SENDER" },
       ];
@@ -146,7 +133,6 @@ export default function Ameerchatbox() {
       setInputText("");
       setPromptSent(true);
 
-      // chatprompt
       try {
         const response = await axios.post(
           `${baseUrl}/api/v1/chat/prompt`,
@@ -157,7 +143,6 @@ export default function Ameerchatbox() {
             },
           }
         );
-
         console.log(newMessages);
         console.log(response);
         const newId = response.data.data.chatRoomId;
@@ -173,6 +158,7 @@ export default function Ameerchatbox() {
 
           setRecentChats([
             {
+              id: newId,
               title: aiResponse.split(" ").slice(0, 5).join(" ") + "...",
               message: aiResponse,
             },
@@ -180,14 +166,10 @@ export default function Ameerchatbox() {
         }
 
         const updatedMessages = [
-            ...newMessages,
-            {
-              message: aiResponse,
-              userRole: "ai-message",
-              id: id ? parseInt(id as string) : undefined, // Ensure id is a number or undefined
-            },
-          ];
-          setMessages(updatedMessages);
+          ...newMessages,
+          { message: aiResponse, userRole: "ai-message", id: newId },
+        ];
+        setMessages(updatedMessages);
       } catch (error) {
         console.error("Failed to send prompt:", error);
         setErrorMessage("An error occurred while processing your request.");
@@ -198,7 +180,7 @@ export default function Ameerchatbox() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSendClick();
@@ -213,7 +195,6 @@ export default function Ameerchatbox() {
     setIsMenuOpen(false);
   };
 
-  // recentChats
   const fetchRecentChats = async () => {
     const token = localStorage.getItem("token");
     setIsLoading(true);
@@ -221,16 +202,16 @@ export default function Ameerchatbox() {
       const response = await axios.get(`${baseUrl}/api/v1/chat/recent`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const chats = response.data.data || [];
+      const chats: Chat[] = response.data.data || [];
       setRecentChats(chats);
       if (chats.length === 0) {
-        setRecentChats([{ title: "No recent chats", message: "" }]);
+        setRecentChats([{ id: "0", title: "No recent chats", message: "" }]);
       }
       setShowRecentChatButton(false);
     } catch (error) {
       console.error("Failed to fetch recent chats:", error);
       setErrorMessage("An error occurred while fetching recent chats.");
-      setRecentChats([{ title: "No recent chats", message: "" }]);
+      setRecentChats([{ id: "0", title: "No recent chats", message: "" }]);
     } finally {
       setIsLoading(false);
     }
@@ -284,13 +265,27 @@ export default function Ameerchatbox() {
       <div className="dark-mode">
         <ChaUI messages={messages} />
       </div>
-      {errorMessage && <ErrorMessage message={errorMessage} />}
+      <ErrorMessage message={errorMessage} /> {/* Display the error message */}
     </div>
   );
 }
 
-// NavBar component
-const NavBar: React.FC<NavBarProps> = ({
+interface NavBarProps {
+  isMenuOpen: boolean;
+  sideMenuRef: React.RefObject<HTMLDivElement>;
+  toggleMenu: () => void;
+  user: User;
+  getInitials: (name: string | undefined) => string;
+  handleLogoutClick: () => void;
+  showRecentChatButton: boolean;
+  promptSent: boolean;
+  handleRecentChatsClick: () => void;
+  isLoading: boolean;
+  recentChats: Chat[];
+  handleNewChatClick: () => void;
+}
+
+const NavBar = ({
   isMenuOpen,
   sideMenuRef,
   toggleMenu,
@@ -301,51 +296,79 @@ const NavBar: React.FC<NavBarProps> = ({
   promptSent,
   handleRecentChatsClick,
   isLoading,
-  recentChats,
+  recentChats = [],
   handleNewChatClick,
-}) => {
+}: NavBarProps) => {
+  const navigate = useNavigate();
+  const handleRecentChatClick = (chatId: string) => {
+    navigate(`/ameerchatbox/${chatId}`);
+    toggleMenu(); // Close the menu after selecting a recent chat
+  };
   return (
-    <div
-      className={`side-menu ${isMenuOpen ? "open" : "closed"}`}
-      ref={sideMenuRef}
-    >
-      <div className="user-section">
-        <div className="initials">{getInitials(user?.fullName || "")}</div>
-        <span className="user-email">{user?.email}</span>
+    <div className={`side-menu ${isMenuOpen ? "open" : ""}`} ref={sideMenuRef}>
+      <div className="chat-profile-container">
+        <div className="chat-profile-wrapper">
+          <button className="cancel-button" onClick={toggleMenu}>
+            ×
+          </button>
+          <h2 className="chat-profile">
+            {user ? getInitials(user.fullName) : "N/A"}
+          </h2>
+          <p>{user ? user.fullName : "N/A"}</p>
+          <div className="user-email">
+            <p className="email">{user ? user.email : "N/A"}</p>
+            <p className="logout-text" onClick={handleLogoutClick}>
+              Logout
+            </p>
+          </div>
+        </div>
       </div>
-      <button onClick={handleNewChatClick} className="new-chat-button">
+      <div className="recent-chats">
+        {showRecentChatButton && !promptSent && (
+          <button className="get-recent-chat" onClick={handleRecentChatsClick}>
+            {isLoading ? "Loading..." : "Get Recent Chats"}
+          </button>
+        )}
+        <h3>Recent Chats</h3>
+        {recentChats.length > 0
+          ? recentChats.map((chat, index) => (
+              <div
+                onClick={() => handleRecentChatClick(chat.id)} // Close the menu and navigate
+                key={index}
+                className="recent-chat-item"
+              >
+                {chat.title}
+              </div>
+            ))
+          : !showRecentChatButton && (
+              <div className="recent-chat-item">No recent chats</div>
+            )}
+      </div>
+      <button className="new-chat-button" onClick={() => {
+        navigate(`/ameerchatbox`);
+        handleNewChatClick();
+      }}>
         New Chat
-      </button>
-      {showRecentChatButton && (
-        <button
-          onClick={handleRecentChatsClick}
-          className="recent-chats-button"
-          disabled={isLoading}
-        >
-          {isLoading ? "Loading..." : "Recent Chats"}
-        </button>
-      )}
-      <button onClick={handleLogoutClick} className="logout-button">
-        Logout
       </button>
     </div>
   );
 };
 
-// Chat UI component
-const ChaUI: React.FC<ChaUIProps> = ({ messages }) => {
+interface ChaUIProps {
+  messages: Message[];
+}
+
+const ChaUI = ({ messages }: ChaUIProps) => {
   return (
-    <div className="chat-ui">
-      {messages.map((message, index) => (
+    <div className="messages-container">
+      {messages.map((msg, index) => (
         <div
           key={index}
-          className={`message ${
-            message.userRole === "ai-message" ? "ai" : "user"
-          }`}
+          className={`message ${msg.userRole === "SENDER" ? "user-message" : "ai-message"}`}
         >
-          <ReactMarkdown>{message.message}</ReactMarkdown>
+          <ReactMarkdown>{msg.message}</ReactMarkdown>
         </div>
       ))}
     </div>
   );
-}
+};
