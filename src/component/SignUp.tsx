@@ -8,13 +8,8 @@ import CapitalizeName from "./CapitalizeName";
 import { useUser } from "./UserContext";
 import { baseUrl } from "./constants";
 import { User } from "./UserContext";
-
-
-interface UserData {
-  email: string;
-  fullName: string;
-  userToken: string;
-}
+import { auth, googleProvider } from "../config/firebase";
+import { createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 
 export default function SignUp() {
   const [email, setEmail] = useState<string>("");
@@ -29,18 +24,70 @@ export default function SignUp() {
   const navigate = useNavigate();
   const { setUser } = useUser();
 
+  // Function to register user on Firebase
+  const signIn = async () => {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      if (err instanceof Error) {
+        setApiError(getFirebaseErrorMessage(err));
+      } else {
+        setApiError("An unexpected error occurred. Please try again.");
+      }
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      if (user) {
+        const userData: User = {
+          email: user.email || "",
+          fullName: user.displayName || "User",
+          token: await user.getIdToken(),
+        };
+
+        setUser(userData);
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ email: user.email, fullName: user.displayName })
+        );
+        localStorage.setItem("token", userData.token);
+
+        navigate("/ameerchatbox");
+      }
+    } catch (err) {
+      if (err instanceof Error) {
+        setApiError(getFirebaseErrorMessage(err));
+      } else {
+        setApiError("An unexpected error occurred. Please try again.");
+      }
+    }
+  };
+
+  const getFirebaseErrorMessage = (error: Error): string => {
+    switch (error.message) {
+      case "Firebase: Error (auth/email-already-in-use).":
+        return "This email is already in use. Please choose another.";
+      case "Firebase: Error (auth/invalid-email).":
+        return "The email address is not valid.";
+      case "Firebase: Error (auth/weak-password).":
+        return "The password is too weak. Please use a stronger password.";
+      default:
+        return "An unknown error occurred. Please try again.";
+    }
+  };
+
   const handleEmailChange = (e: ChangeEvent<HTMLInputElement>) =>
     setEmail(e.target.value);
-
   const handleFullNameChange = (e: ChangeEvent<HTMLInputElement>) =>
     setFullName(CapitalizeName(e.target.value));
-
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) =>
     setPassword(e.target.value);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
     let valid = true;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -66,59 +113,49 @@ export default function SignUp() {
     }
 
     if (!valid) {
-      setTimeout(() => {
-        setErrorEmail("");
-        setErrorFullName("");
-        setErrorPassword("");
-      }, 4000);
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await axios.post(`${baseUrl}/api/v1/auth/user/register`, {
-        full_name: fullName,
-        email,
-        password,
-      });
+      const response = await axios.post(
+        `${baseUrl}/api/v1/auth/user/register`,
+        {
+          full_name: fullName,
+          email,
+          password,
+        }
+      );
 
       const responseData = response.data.data;
       const userToken = responseData.token;
 
       if (!response.data.error) {
         setShowPopup(true);
-        const userData: User = { email, fullName, token: userToken }; // Use token instead of userToken
+        const userData: User = { email, fullName, token: userToken };
         setUser(userData);
-      
-        // Save only necessary details in local storage
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            email,
-            fullName,
-          })
-        );
+
+        localStorage.setItem("user", JSON.stringify({ email, fullName }));
         localStorage.setItem("token", userToken);
-        
+
         setTimeout(() => {
           setShowPopup(false);
-          navigate("/ameerchatbox"); // Redirect to ameerchatbox
+          navigate("/ameerchatbox");
         }, 2000);
       }
-      
     } catch (error: any) {
-      if (error.response && error.response.data && error.response.data.message) {
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
         setApiError(error.response.data.message);
       } else {
-        setApiError("An error occurred. Please try again.");
+        setApiError("An error occurred while registering. Please try again.");
       }
-
-      setTimeout(() => {
-        setApiError("");
-      }, 4000);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -128,7 +165,6 @@ export default function SignUp() {
         <p className="first--paragraph">
           Gain unlimited access to ameerchatbot today!
         </p>
-
         <form onSubmit={handleSubmit}>
           <div className="form--container">
             <div className="input--container">
@@ -163,14 +199,29 @@ export default function SignUp() {
               </div>
               <p className="forgot-pass">Forgot Password</p>
             </div>
-            <button className="btn" type="submit" disabled={isLoading}>
+            <button
+              className="btn"
+              type="submit"
+              onClick={signIn}
+              disabled={isLoading}
+            >
               {isLoading ? "loading .." : "Sign Up"}
             </button>
-            {apiError && <p className="error-message">{apiError}</p>}
+            {apiError && <div className="error-message">{apiError}</div>}
             <div className="horizontal-wrapper">
               <hr className="horizontal-line" />
               <p className="horizontal-para">Or With</p>
             </div>
+          </div>
+          <div className="registration-alternatives">
+            {/* <div className="btn-container" onClick={signInWithGoogle}>
+              <img
+                className="btns"
+                src="./images/Google-icon.png"
+                alt="google"
+              />
+              <p className="btn-text">Google</p>
+            </div> */}
           </div>
         </form>
 

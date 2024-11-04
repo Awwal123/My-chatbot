@@ -147,7 +147,25 @@ const Login: React.FC<LoginProps> = ({ switchToSignUp }) => {
           <hr className="horizontal-line" />
           <p className="horizontal-para">Or With</p>
         </div>
+        {/* <div className="registration-alternattives">
+            <div className="btn-container">
+              <img
+                className="btns"
+                src="./images/Github.png"
+                alt="google"
+              />
+              <p className="btn-text">Github</p>
+            </div>
 
+            <div className="btn-container">
+              <img
+                className="btns"
+                src="./images/Google-icon.png"
+                alt="google"
+              />
+              <p className="btn-text">Google</p>
+            </div>
+          </div> */}
         <button
           className="have-an-account-login"
           onClick={() => navigate("/signup")}

@@ -6,22 +6,26 @@ const AuthCheck: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/signup?no-auth=true");
-    } else {
-      try {
-        const hasExpired = isJwtExpired(token);
+    const checkTokenValidity = () => {
+      const token = localStorage.getItem("token");
 
-        if (hasExpired) {
+      if (!token) {
+        navigate("/signup?no-auth=true");
+        return;
+      }
+
+      try {
+        if (isJwtExpired(token)) {
           navigate("/login?no-auth=true");
         }
       } catch (error) {
-        alert("An error occurred");
-        console.error("Token decoding failed", error);
+        console.error("Token decoding failed:", error);
+        alert("An error occurred while checking your session. Please log in again.");
         navigate("/login?auth-required=true");
       }
-    }
+    };
+
+    checkTokenValidity();
   }, [navigate]);
 
   return <Outlet />;
