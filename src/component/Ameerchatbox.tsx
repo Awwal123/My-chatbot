@@ -41,15 +41,11 @@ export default function Ameerchatbox() {
   const [firstAIResponseSet, setFirstAIResponseSet] = useState<boolean>(false);
   const [promptSent, setPromptSent] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const inputRef =useRef<HTMLInputElement>(null);
+  // const inputRef =useRef<HTMLInputElement>(null);
   // const sideMenuRef = useRef<HTMLDivElement>(null);
 
 
-  useEffect(() => {
-    if(inputRef.current){
-      inputRef.current.focus();
-    }
-  });
+  
 
   const { user } = useUser();
   const navigate = useNavigate();
@@ -64,11 +60,11 @@ export default function Ameerchatbox() {
     fetchRecentChats();
   }, [id]);
 
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (inputRef.current) {
+  //     inputRef.current.focus();
+  //   }
+  // }, []);
 
   useEffect(() => {
     if (errorMessage) {
@@ -262,7 +258,7 @@ export default function Ameerchatbox() {
       <div className="chatbox-prompt-container">
         <input
           className="propmt-text-box"
-          ref={inputRef}
+          
           type="text"
           placeholder="input a prompt..."
           value={isSending ? "Processing..." : inputText}
